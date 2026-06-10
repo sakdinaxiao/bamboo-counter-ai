@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.env
+venv/
+
+# OS / editor
+.DS_Store
+.vscode/
+
+# Pretrained download (not your trained model)
+yolo26n.pt
+
+# Datasets
+Counting_dataset/
+Couting_dataset_Clahe/
+Dataset/
+Image_Data/
+
+# Videos (raw footage + clips)
+*.mp4
+*.MP4
+Video/
