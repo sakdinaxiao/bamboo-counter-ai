@@ -32,7 +32,7 @@ async def count_bamboo(file: UploadFile = File(...)):
 
     try:
         temp_path.write_bytes(await file.read())
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         count = await loop.run_in_executor(None, web_main.run, str(temp_path))
         return JSONResponse({"count": count})
     except Exception as exc:
