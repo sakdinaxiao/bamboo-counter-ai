@@ -6,6 +6,7 @@ from ultralytics import YOLO
 from src.sahi_inference import apply_sahi, get_sahi
 from src.clahe_inference import apply_clahe
 from src.global_tracker import GlobalTracker
+from src.segmentation import segmenting
 
 project_root = Path(__file__).resolve().parent
 _model_path = project_root / "training_result" / "detection_small" / "weights" / "best.pt"
@@ -41,7 +42,6 @@ def run(video_path: str) -> int:
                 continue
 
             if use_segmentation:
-                from src.segmentation import segmenting
                 regions = segmenting(seg_model, frame)
             else:
                 regions = [{"image": frame, "offset_x": 0, "offset_y": 0}]
