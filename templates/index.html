@@ -273,7 +273,7 @@
     resultEl.style.display     = 'none';
     processingEl.style.display = 'none';
     uploadZone.style.display   = 'block';
-    fileInput.value = '';
+    fileInput.value = null;
   }
 
   async function uploadVideo(file) {
@@ -281,10 +281,11 @@
     fd.append('file', file);
     try {
       const res  = await fetch('/count', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
       const data = await res.json();
       showResult(data.count, data.error || null);
-    } catch {
-      showResult(0, 'Network error — is the server running?');
+    } catch (err) {
+      showResult(0, err.message || 'Network error — is the server running?');
     }
   }
 </script>
