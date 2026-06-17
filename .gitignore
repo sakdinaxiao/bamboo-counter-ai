@@ -21,3 +21,6 @@ Image_Data/
 *.mp4
 *.MP4
 Video/
+
+# Web server temp uploads
+temp/
