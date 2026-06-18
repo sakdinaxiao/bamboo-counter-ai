@@ -10,8 +10,8 @@ import numpy as np
 import argparse
 from src.global_tracker import GlobalTracker
 
-project_root = Path(__file__).resolve().parent
-model_path = project_root / "training_result" / "detection_small" / "weights" / "best.pt" 
+project_root = Path(__file__).resolve().parent.parent
+model_path = project_root / "training_result" / "detection_small" / "weights" / "best.pt"
 seg_model_path = project_root / "training_result" / "segment" / "best.pt"
 
 #using small YOLO
@@ -117,6 +117,7 @@ def main(video):
             print(f"Raw YOLO Detections this frame: {len(all_detections_xyxy)}")
 
             tracker.update(frame,final_detections)
+
 
             # -------------------------- Visulization
 
