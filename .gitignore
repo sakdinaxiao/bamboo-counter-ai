@@ -24,3 +24,12 @@ Video/
 
 # Web server temp uploads
 temp/
+
+# Pytest cache
+.pytest_cache/
+
+# Training artifacts
+training_result/
+
+# Dev planning docs
+docs/
