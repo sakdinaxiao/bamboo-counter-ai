@@ -13,7 +13,7 @@ _model_path = project_root / "training_result" / "detection_small" / "weights" /
 _seg_model_path = project_root / "training_result" / "segment" / "best.pt"
 
 
-def run(video_path: str) -> int:
+def run(video_path: str, output_path: str | None = None) -> int:
     if not _model_path.exists():
         raise FileNotFoundError(f"Detection model not found: {_model_path}")
 
@@ -23,6 +23,18 @@ def run(video_path: str) -> int:
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise ValueError(f"Cannot open video: {video_path}")
+
+    writer = None
+    box_annotator = None
+    if output_path:
+        origin_fps_pre = cap.get(cv2.CAP_PROP_FPS) or 30
+        stride_pre = max(1, int(origin_fps_pre / 3))
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        out_fps = max(1.0, origin_fps_pre / stride_pre)
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(output_path, fourcc, out_fps, (w, h))
+        box_annotator = sv.BoxAnnotator(color=sv.Color.GREEN, thickness=2)
 
     try:
         sahi = get_sahi(_model_path)
@@ -76,6 +88,19 @@ def run(video_path: str) -> int:
 
             tracker.update(frame, detections)
 
+            if writer is not None:
+                annotated = frame.copy()
+                if not detections.is_empty():
+                    annotated = box_annotator.annotate(annotated, detections)
+                cv2.putText(
+                    annotated, f"Count: {tracker.count()}",
+                    (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 2,
+                    cv2.LINE_AA,
+                )
+                writer.write(annotated)
+
         return tracker.count()
     finally:
         cap.release()
+        if writer is not None:
+            writer.release()
