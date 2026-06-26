@@ -1,17 +1,43 @@
 import asyncio
+import time
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 import web_main
 
-app = FastAPI()
-
 _templates = Path(__file__).parent / "templates"
 _temp_dir = Path(__file__).parent / "temp"
 _temp_dir.mkdir(exist_ok=True)
+
+_VIDEO_TTL_SECONDS = 600  # 10 minutes
+
+
+async def _cleanup_old_videos():
+    while True:
+        await asyncio.sleep(_VIDEO_TTL_SECONDS)
+        cutoff = time.time() - _VIDEO_TTL_SECONDS
+        for f in _temp_dir.glob("*_output.mp4"):
+            try:
+                if f.stat().st_mtime < cutoff:
+                    f.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(_cleanup_old_videos())
+    try:
+        yield
+    finally:
+        task.cancel()
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -47,12 +73,11 @@ async def count_bamboo(file: UploadFile = File(...)):
             output_path.unlink(missing_ok=True)
         return JSONResponse({"count": 0, "error": str(exc)})
     finally:
-        if temp_path.exists():
-            temp_path.unlink()
+        temp_path.unlink(missing_ok=True)
 
 
 @app.get("/video/{video_id}")
-async def get_video(video_id: str, background_tasks: BackgroundTasks):
+async def get_video(video_id: str):
     try:
         uuid.UUID(video_id)
     except ValueError:
@@ -62,5 +87,4 @@ async def get_video(video_id: str, background_tasks: BackgroundTasks):
     if not video_path.exists():
         raise HTTPException(status_code=404, detail="Video not found")
 
-    background_tasks.add_task(video_path.unlink, missing_ok=True)
     return FileResponse(str(video_path), media_type="video/mp4")

@@ -91,7 +91,8 @@ def test_get_video_serves_and_deletes_file():
     response = client.get(f"/video/{video_id}")
     assert response.status_code == 200
     assert response.headers["content-type"] == "video/mp4"
-    assert not video_file.exists()
+    assert video_file.exists()
+    video_file.unlink(missing_ok=True)
 
 
 def test_get_video_returns_404_for_unknown_id():

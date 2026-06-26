@@ -26,17 +26,18 @@ def run(video_path: str, output_path: str | None = None) -> int:
 
     writer = None
     box_annotator = None
-    if output_path:
-        origin_fps_pre = cap.get(cv2.CAP_PROP_FPS) or 30
-        stride_pre = max(1, int(origin_fps_pre / 3))
-        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        out_fps = max(1.0, origin_fps_pre / stride_pre)
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        writer = cv2.VideoWriter(output_path, fourcc, out_fps, (w, h))
-        box_annotator = sv.BoxAnnotator(color=sv.Color.GREEN, thickness=2)
 
     try:
+        if output_path:
+            origin_fps_pre = cap.get(cv2.CAP_PROP_FPS) or 30
+            stride_pre = max(1, int(origin_fps_pre / 3))
+            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            out_fps = max(1.0, origin_fps_pre / stride_pre)
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            writer = cv2.VideoWriter(output_path, fourcc, out_fps, (w, h))
+            box_annotator = sv.BoxAnnotator(color=sv.Color.GREEN, thickness=2)
+
         sahi = get_sahi(_model_path)
         tracker = GlobalTracker(merge_distance=12.5)
 
