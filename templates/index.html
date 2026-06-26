@@ -189,6 +189,8 @@
   <div class="result" id="result">
     <div class="result-count" id="result-count">0</div>
     <div class="result-label">bamboo detected in your video</div>
+    <video id="result-video" controls autoplay muted
+           style="display:none; width:100%; max-width:720px; border-radius:8px; margin:1.5rem 0;"></video>
     <div class="result-error" id="result-error" style="display:none"></div>
     <button class="btn-secondary" id="reset-btn">Count another video</button>
   </div>
@@ -202,6 +204,7 @@
   const labelEl      = document.getElementById('processing-label');
   const countEl      = document.getElementById('result-count');
   const errorEl      = document.getElementById('result-error');
+  const resultVideo  = document.getElementById('result-video');
 
   const STEPS = ['Loading model…', 'Analyzing frames…', 'Counting bamboo…'];
   let stepTimer = null;
@@ -241,7 +244,7 @@
     }, 3000);
   }
 
-  function showResult(count, error) {
+  function showResult(count, error, videoId) {
     clearInterval(stepTimer);
     processingEl.style.display = 'none';
     resultEl.style.display = 'block';
@@ -249,9 +252,18 @@
       errorEl.textContent = error;
       errorEl.style.display = 'block';
       countEl.textContent = '0';
+      resultVideo.style.display = 'none';
+      resultVideo.src = '';
     } else {
       errorEl.style.display = 'none';
       animateCount(count);
+      if (videoId) {
+        resultVideo.src = '/video/' + videoId;
+        resultVideo.style.display = 'block';
+      } else {
+        resultVideo.style.display = 'none';
+        resultVideo.src = '';
+      }
     }
   }
 
@@ -272,6 +284,8 @@
     processingEl.style.display = 'none';
     uploadZone.style.display   = 'block';
     fileInput.value = null;
+    resultVideo.style.display  = 'none';
+    resultVideo.src            = '';
   }
 
   async function uploadVideo(file) {
@@ -281,9 +295,9 @@
       const res  = await fetch('/count', { method: 'POST', body: fd });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       const data = await res.json();
-      showResult(data.count, data.error || null);
+      showResult(data.count, data.error || null, data.video_id || null);
     } catch (err) {
-      showResult(0, err.message || 'Network error — is the server running?');
+      showResult(0, err.message || 'Network error — is the server running?', null);
     }
   }
 </script>
