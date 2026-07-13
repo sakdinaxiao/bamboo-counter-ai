@@ -42,10 +42,6 @@ def main(video):
         sahi = get_sahi(model_path)
 
         tracker = GlobalTracker(merge_distance=12.5)
-        # bytetrack, id_counter = get_bytetrack()
-        # frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        # frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        # min_x, min_y, max_x, max_y = get_counting_zone((frame_height, frame_width, 3))
         
         #----- for visual only
         box_annotator = sv.BoxAnnotator()
