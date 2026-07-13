@@ -16,7 +16,7 @@ def get_sahi(model):
     return AutoDetectionModel.from_pretrained(
         model_type="yolov11",
         model_path= str(model),
-        confidence_threshold=0.5,
+        confidence_threshold=0.6,
         device=get_available_device()
     )
 

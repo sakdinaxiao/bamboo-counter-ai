@@ -11,7 +11,7 @@ import argparse
 from src.global_tracker import GlobalTracker
 
 project_root = Path(__file__).resolve().parent.parent
-model_path = project_root / "training_result" / "detection_small" / "weights" / "best.pt" 
+model_path = project_root / "training_result" / "detection_small" / "weights" / "best.pt"
 seg_model_path = project_root / "training_result" / "segment" / "best.pt"
 
 #using small YOLO
@@ -42,10 +42,6 @@ def main(video):
         sahi = get_sahi(model_path)
 
         tracker = GlobalTracker(merge_distance=12.5)
-        # bytetrack, id_counter = get_bytetrack()
-        # frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        # frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        # min_x, min_y, max_x, max_y = get_counting_zone((frame_height, frame_width, 3))
         
         #----- for visual only
         box_annotator = sv.BoxAnnotator()
@@ -117,6 +113,7 @@ def main(video):
             print(f"Raw YOLO Detections this frame: {len(all_detections_xyxy)}")
 
             tracker.update(frame,final_detections)
+
 
             # -------------------------- Visulization
 
