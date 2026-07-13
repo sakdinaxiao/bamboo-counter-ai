@@ -51,7 +51,7 @@ def test_count_returns_zero_and_error_on_failure():
 
 
 def test_count_returns_video_id_on_success():
-    def mock_run_with_output(video_path, output_path=None):
+    def mock_run_with_output(video_path, output_path=None, progress=None):
         if output_path:
             Path(output_path).write_bytes(b"fake mp4")
         return 7
@@ -123,3 +123,44 @@ def test_delete_video_returns_404_for_unknown_id():
 def test_delete_video_returns_400_for_invalid_id():
     response = client.delete("/video/not-a-uuid")
     assert response.status_code == 400
+
+
+def test_progress_returns_zero_for_unknown_job():
+    response = client.get(f"/progress/{uuid.uuid4()}")
+    assert response.status_code == 200
+    assert response.json() == {"percent": 0}
+
+
+def test_progress_returns_400_for_invalid_id():
+    response = client.get("/progress/not-a-uuid")
+    assert response.status_code == 400
+
+
+def test_count_rejects_invalid_job_id():
+    response = client.post(
+        "/count",
+        files={"file": ("clip.mp4", BytesIO(b"fake video bytes"), "video/mp4")},
+        data={"job_id": "not-a-uuid"},
+    )
+    assert response.status_code == 400
+
+
+def test_count_reports_progress_and_cleans_up():
+    job_id = str(uuid.uuid4())
+    observed = {}
+
+    def mock_run(video_path, output_path=None, progress=None):
+        progress(50)
+        observed["during"] = app_module._progress.get(job_id)
+        return 3
+
+    with patch("app.web_main.run", side_effect=mock_run):
+        response = client.post(
+            "/count",
+            files={"file": ("clip.mp4", BytesIO(b"fake video bytes"), "video/mp4")},
+            data={"job_id": job_id},
+        )
+    assert response.status_code == 200
+    assert response.json()["count"] == 3
+    assert observed["during"] == 50
+    assert client.get(f"/progress/{job_id}").json()["percent"] == 0

@@ -1,6 +1,7 @@
 import shutil
 import subprocess
 from pathlib import Path
+from collections.abc import Callable
 import cv2
 import numpy as np
 import supervision as sv
@@ -30,7 +31,11 @@ def _to_h264(src: str, dst: str) -> None:
         Path(src).replace(dst)
 
 
-def run(video_path: str, output_path: str | None = None) -> int:
+def run(
+    video_path: str,
+    output_path: str | None = None,
+    progress: Callable[[int], None] | None = None,
+) -> int:
     if not _model_path.exists():
         raise FileNotFoundError(f"Detection model not found: {_model_path}")
 
@@ -63,6 +68,7 @@ def run(video_path: str, output_path: str | None = None) -> int:
         origin_fps = cap.get(cv2.CAP_PROP_FPS) or 30
         stride = max(1, int(origin_fps / 3))
         frame_count = 0
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
 
         while cap.isOpened():
             ret, frame = cap.read()
@@ -118,6 +124,12 @@ def run(video_path: str, output_path: str | None = None) -> int:
                     cv2.LINE_AA,
                 )
                 writer.write(annotated)
+
+            if progress is not None and total_frames > 0:
+                progress(min(100, int(frame_count * 100 / total_frames)))
+
+        if progress is not None:
+            progress(100)
 
         if writer is not None:
             writer.release()

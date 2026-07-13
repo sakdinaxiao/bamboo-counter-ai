@@ -1,10 +1,11 @@
 import asyncio
+import functools
 import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 import web_main
@@ -14,6 +15,8 @@ _temp_dir = Path(__file__).parent / "temp"
 _temp_dir.mkdir(exist_ok=True)
 
 _VIDEO_TTL_SECONDS = 600  # 10 minutes
+
+_progress: dict[str, int] = {}
 
 
 async def _cleanup_old_videos():
@@ -49,24 +52,38 @@ async def index():
 
 
 @app.post("/count")
-async def count_bamboo(file: UploadFile = File(...)):
+async def count_bamboo(file: UploadFile = File(...), job_id: str | None = Form(None)):
     if not file.content_type or not file.content_type.startswith("video/"):
         raise HTTPException(status_code=400, detail="File must be a video")
 
+    if job_id is not None:
+        try:
+            uuid.UUID(job_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid job ID")
+        jid = job_id
+    else:
+        jid = str(uuid.uuid4())
+
     suffix = Path(file.filename or "upload").suffix or ".mp4"
-    job_id = uuid.uuid4()
-    temp_path = _temp_dir / f"{job_id}_input{suffix}"
-    output_path = _temp_dir / f"{job_id}_output.mp4"
+    temp_path = _temp_dir / f"{jid}_input{suffix}"
+    output_path = _temp_dir / f"{jid}_output.mp4"
+
+    def _report(pct: int) -> None:
+        _progress[jid] = pct
 
     try:
         temp_path.write_bytes(await file.read())
         loop = asyncio.get_running_loop()
         count = await loop.run_in_executor(
-            None, web_main.run, str(temp_path), str(output_path)
+            None,
+            functools.partial(
+                web_main.run, str(temp_path), str(output_path), progress=_report
+            ),
         )
         response: dict = {"count": count}
         if output_path.exists():
-            response["video_id"] = str(job_id)
+            response["video_id"] = jid
         return JSONResponse(response)
     except Exception as exc:
         if output_path.exists():
@@ -74,6 +91,16 @@ async def count_bamboo(file: UploadFile = File(...)):
         return JSONResponse({"count": 0, "error": str(exc)})
     finally:
         temp_path.unlink(missing_ok=True)
+        _progress.pop(jid, None)
+
+
+@app.get("/progress/{job_id}")
+async def get_progress(job_id: str):
+    try:
+        uuid.UUID(job_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid job ID")
+    return JSONResponse({"percent": _progress.get(job_id, 0)})
 
 
 @app.get("/video/{video_id}")

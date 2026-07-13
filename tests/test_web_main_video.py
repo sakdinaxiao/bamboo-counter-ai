@@ -53,3 +53,15 @@ def test_run_without_output_path_returns_count(tmp_path, video_file):
         from web_main import run
         count = run(video_file)
     assert count == 5
+
+
+def test_run_reports_progress(tmp_path, video_file):
+    patches = _patch_ml(tmp_path)
+    reported = []
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+        from web_main import run
+        count = run(video_file, progress=reported.append)
+    assert count == 5
+    assert reported, "progress callback was never called"
+    assert reported == sorted(reported)
+    assert reported[-1] == 100

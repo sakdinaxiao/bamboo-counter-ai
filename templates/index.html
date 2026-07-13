@@ -123,22 +123,30 @@
     .processing {
       display: none;
       width: 100%;
-      max-width: 580px;
-      border: 2px dashed rgba(22,163,74,0.35);
-      border-radius: 12px;
-      background: rgba(22,163,74,0.03);
+      max-width: 720px;
       text-align: center;
-      padding: 4rem 2rem;
     }
-    .spinner {
-      width: 60px; height: 60px;
-      border: 3px solid rgba(22,163,74,0.18);
-      border-top-color: var(--accent-hover);
-      border-radius: 50%;
-      animation: spin 0.85s linear infinite;
-      margin: 0 auto 2rem;
+    .processing video {
+      width: 100%;
+      border-radius: 12px;
+      display: block;
+      opacity: 0.55;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(22,163,74,0.18);
+      margin: 1.25rem 0 0.9rem;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 3px;
+      background: var(--accent-hover);
+      transition: width 400ms ease;
+    }
     .processing-label { font-size: 1.05rem; color: var(--text-muted); }
 
     /* ── Player ── */
@@ -223,8 +231,9 @@
   </div>
 
   <div class="processing" id="processing">
-    <div class="spinner"></div>
-    <div class="processing-label" id="processing-label">Loading model…</div>
+    <video id="preview-video" muted playsinline preload="metadata"></video>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="processing-label" id="processing-label">Preparing…</div>
   </div>
 
   <div class="player" id="player">
@@ -253,11 +262,14 @@
   const countEl      = document.getElementById('result-count');
   const errorEl      = document.getElementById('result-error');
   const resultVideo  = document.getElementById('result-video');
+  const previewVideo = document.getElementById('preview-video');
+  const progressFill = document.getElementById('progress-fill');
   const skipBtn      = document.getElementById('skip-btn');
   const downloadBtn  = document.getElementById('download-btn');
 
-  const STEPS = ['Loading model…', 'Analyzing frames…', 'Counting bamboo…'];
-  let stepTimer = null;
+  let pollTimer = null;
+  let previewUrl = null;
+  let jobId = null;
   let videoBlobUrl = null;
   let currentCount = 0;
   let resultShown = false;
@@ -279,31 +291,73 @@
   });
   fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
 
+  function newJobId() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  }
+
   function handleFile(file) {
     if (!file.type.startsWith('video/')) {
       alert('Please upload a video file (MP4, MOV, AVI, etc.).');
       return;
     }
+    jobId = newJobId();
+    previewUrl = URL.createObjectURL(file);
     showProcessing();
     uploadVideo(file);
+  }
+
+  function setProgress(percent) {
+    const display = Math.round(percent * 0.95);
+    progressFill.style.width = display + '%';
+    if (percent <= 0) {
+      labelEl.textContent = 'Preparing…';
+    } else if (percent < 100) {
+      labelEl.textContent = `Analyzing… ${display}%`;
+    } else {
+      labelEl.textContent = 'Finalizing…';
+    }
+  }
+
+  async function pollProgress() {
+    if (!jobId) return;
+    try {
+      const res = await fetch('/progress/' + jobId);
+      if (res.ok) {
+        const data = await res.json();
+        setProgress(data.percent || 0);
+      }
+    } catch {}
   }
 
   function showProcessing() {
     uploadZone.style.display = 'none';
     playerEl.style.display   = 'none';
     resultEl.style.display   = 'none';
+    previewVideo.src = previewUrl;
+    previewVideo.load();
+    setProgress(0);
     processingEl.style.display = 'block';
-    let i = 0;
-    labelEl.textContent = STEPS[0];
-    stepTimer = setInterval(() => {
-      i = (i + 1) % STEPS.length;
-      labelEl.textContent = STEPS[i];
-    }, 3000);
+    pollTimer = setInterval(pollProgress, 1000);
+  }
+
+  function stopProcessing() {
+    clearInterval(pollTimer);
+    pollTimer = null;
+    processingEl.style.display = 'none';
+    previewVideo.removeAttribute('src');
+    previewVideo.load();
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      previewUrl = null;
+    }
   }
 
   function showPlayer(blobUrl) {
-    clearInterval(stepTimer);
-    processingEl.style.display = 'none';
+    stopProcessing();
     resultShown = false;
     resultVideo.src = blobUrl;
     skipBtn.style.display = 'inline-block';
@@ -322,8 +376,7 @@
   }
 
   function showResult(count, error) {
-    clearInterval(stepTimer);
-    processingEl.style.display = 'none';
+    stopProcessing();
     playerEl.style.display = 'none';
     resultShown = true;
     resultEl.style.display = 'block';
@@ -361,10 +414,10 @@
   }
 
   function resetToUpload() {
-    resultEl.style.display     = 'none';
-    processingEl.style.display = 'none';
-    playerEl.style.display     = 'none';
-    uploadZone.style.display   = 'block';
+    stopProcessing();
+    resultEl.style.display   = 'none';
+    playerEl.style.display   = 'none';
+    uploadZone.style.display = 'block';
     fileInput.value = null;
     resultVideo.pause();
     resultVideo.removeAttribute('src');
@@ -373,6 +426,7 @@
       URL.revokeObjectURL(videoBlobUrl);
       videoBlobUrl = null;
     }
+    jobId = null;
     currentCount = 0;
     resultShown = false;
   }
@@ -394,6 +448,7 @@
   async function uploadVideo(file) {
     const fd = new FormData();
     fd.append('file', file);
+    fd.append('job_id', jobId);
     try {
       const res  = await fetch('/count', { method: 'POST', body: fd });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
