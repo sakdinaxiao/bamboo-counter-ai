@@ -88,3 +88,17 @@ async def get_video(video_id: str):
         raise HTTPException(status_code=404, detail="Video not found")
 
     return FileResponse(str(video_path), media_type="video/mp4")
+
+
+@app.delete("/video/{video_id}", status_code=204)
+async def delete_video(video_id: str):
+    try:
+        uuid.UUID(video_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid video ID")
+
+    video_path = _temp_dir / f"{video_id}_output.mp4"
+    if not video_path.exists():
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    video_path.unlink(missing_ok=True)

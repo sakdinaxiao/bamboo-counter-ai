@@ -33,3 +33,5 @@ training_result/
 
 # Dev planning docs
 docs/
+.pair-plan/
+.superpowers/

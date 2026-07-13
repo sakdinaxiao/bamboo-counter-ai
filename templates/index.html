@@ -120,7 +120,16 @@
     #file-input { display: none; }
 
     /* ── Processing ── */
-    .processing { display: none; text-align: center; padding: 3rem 2rem; }
+    .processing {
+      display: none;
+      width: 100%;
+      max-width: 580px;
+      border: 2px dashed rgba(22,163,74,0.35);
+      border-radius: 12px;
+      background: rgba(22,163,74,0.03);
+      text-align: center;
+      padding: 4rem 2rem;
+    }
     .spinner {
       width: 60px; height: 60px;
       border: 3px solid rgba(22,163,74,0.18);
@@ -131,6 +140,32 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .processing-label { font-size: 1.05rem; color: var(--text-muted); }
+
+    /* ── Player ── */
+    .player {
+      display: none;
+      width: 100%;
+      max-width: 720px;
+      text-align: center;
+    }
+    .player video {
+      width: 100%;
+      border-radius: 12px;
+      display: block;
+    }
+    .btn-skip {
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      font-size: 0.85rem;
+      font-family: inherit;
+      cursor: pointer;
+      margin-top: 0.9rem;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      transition: color 300ms ease;
+    }
+    .btn-skip:hover { color: var(--text-primary); }
 
     /* ── Result ── */
     .result { display: none; text-align: center; padding: 2rem; }
@@ -145,6 +180,12 @@
     }
     .result-label { font-size: 1.2rem; color: var(--text-muted); margin-bottom: 2.5rem; }
     .result-error { color: #f87171; font-size: 0.88rem; margin-bottom: 1.5rem; }
+    .result-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
     .btn-secondary {
       background: transparent;
       color: var(--text-primary);
@@ -186,31 +227,46 @@
     <div class="processing-label" id="processing-label">Loading model…</div>
   </div>
 
+  <div class="player" id="player">
+    <video id="result-video" controls autoplay muted playsinline></video>
+    <button class="btn-skip" id="skip-btn">Skip to result</button>
+  </div>
+
   <div class="result" id="result">
     <div class="result-count" id="result-count">0</div>
     <div class="result-label">bamboo detected in your video</div>
-    <video id="result-video" controls autoplay muted
-           style="display:none; width:100%; max-width:720px; border-radius:8px; margin:1.5rem 0;"></video>
     <div class="result-error" id="result-error" style="display:none"></div>
-    <button class="btn-secondary" id="reset-btn">Count another video</button>
+    <div class="result-actions">
+      <button class="btn-primary" id="download-btn" style="display:none">Download video</button>
+      <button class="btn-secondary" id="reset-btn">Count another video</button>
+    </div>
   </div>
 </section>
 
 <script>
   const uploadZone   = document.getElementById('upload-zone');
   const processingEl = document.getElementById('processing');
+  const playerEl     = document.getElementById('player');
   const resultEl     = document.getElementById('result');
   const fileInput    = document.getElementById('file-input');
   const labelEl      = document.getElementById('processing-label');
   const countEl      = document.getElementById('result-count');
   const errorEl      = document.getElementById('result-error');
   const resultVideo  = document.getElementById('result-video');
+  const skipBtn      = document.getElementById('skip-btn');
+  const downloadBtn  = document.getElementById('download-btn');
 
   const STEPS = ['Loading model…', 'Analyzing frames…', 'Counting bamboo…'];
   let stepTimer = null;
+  let videoBlobUrl = null;
+  let currentCount = 0;
+  let resultShown = false;
 
   document.getElementById('browse-btn').addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
   document.getElementById('reset-btn').addEventListener('click', resetToUpload);
+  skipBtn.addEventListener('click', revealResult);
+  resultVideo.addEventListener('ended', revealResult);
+  downloadBtn.addEventListener('click', downloadVideo);
 
   uploadZone.addEventListener('click', () => fileInput.click());
   uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
@@ -234,6 +290,7 @@
 
   function showProcessing() {
     uploadZone.style.display = 'none';
+    playerEl.style.display   = 'none';
     resultEl.style.display   = 'none';
     processingEl.style.display = 'block';
     let i = 0;
@@ -244,26 +301,40 @@
     }, 3000);
   }
 
-  function showResult(count, error, videoId) {
+  function showPlayer(blobUrl) {
     clearInterval(stepTimer);
     processingEl.style.display = 'none';
+    resultShown = false;
+    resultVideo.src = blobUrl;
+    skipBtn.style.display = 'inline-block';
+    playerEl.style.display = 'block';
+    resultVideo.play().catch(() => {});
+  }
+
+  function revealResult() {
+    if (resultShown) return;
+    resultShown = true;
+    skipBtn.style.display = 'none';
+    errorEl.style.display = 'none';
+    downloadBtn.style.display = videoBlobUrl ? 'inline-block' : 'none';
     resultEl.style.display = 'block';
+    animateCount(currentCount);
+  }
+
+  function showResult(count, error) {
+    clearInterval(stepTimer);
+    processingEl.style.display = 'none';
+    playerEl.style.display = 'none';
+    resultShown = true;
+    resultEl.style.display = 'block';
+    downloadBtn.style.display = 'none';
     if (error) {
       errorEl.textContent = error;
       errorEl.style.display = 'block';
       countEl.textContent = '0';
-      resultVideo.style.display = 'none';
-      resultVideo.src = '';
     } else {
       errorEl.style.display = 'none';
       animateCount(count);
-      if (videoId) {
-        resultVideo.src = '/video/' + videoId;
-        resultVideo.style.display = 'block';
-      } else {
-        resultVideo.style.display = 'none';
-        resultVideo.src = '';
-      }
     }
   }
 
@@ -279,13 +350,45 @@
     requestAnimationFrame(tick);
   }
 
+  function downloadVideo() {
+    if (!videoBlobUrl) return;
+    const a = document.createElement('a');
+    a.href = videoBlobUrl;
+    a.download = `bamboo_count_${currentCount}.mp4`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   function resetToUpload() {
     resultEl.style.display     = 'none';
     processingEl.style.display = 'none';
+    playerEl.style.display     = 'none';
     uploadZone.style.display   = 'block';
     fileInput.value = null;
-    resultVideo.style.display  = 'none';
-    resultVideo.src            = '';
+    resultVideo.pause();
+    resultVideo.removeAttribute('src');
+    resultVideo.load();
+    if (videoBlobUrl) {
+      URL.revokeObjectURL(videoBlobUrl);
+      videoBlobUrl = null;
+    }
+    currentCount = 0;
+    resultShown = false;
+  }
+
+  async function fetchVideoBlob(videoId) {
+    try {
+      const res = await fetch('/video/' + videoId);
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      videoBlobUrl = URL.createObjectURL(blob);
+      return videoBlobUrl;
+    } catch {
+      return null;
+    } finally {
+      fetch('/video/' + videoId, { method: 'DELETE' }).catch(() => {});
+    }
   }
 
   async function uploadVideo(file) {
@@ -295,9 +398,21 @@
       const res  = await fetch('/count', { method: 'POST', body: fd });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       const data = await res.json();
-      showResult(data.count, data.error || null, data.video_id || null);
+      if (data.error) {
+        showResult(data.count || 0, data.error);
+        return;
+      }
+      currentCount = data.count;
+      if (data.video_id) {
+        const blobUrl = await fetchVideoBlob(data.video_id);
+        if (blobUrl) {
+          showPlayer(blobUrl);
+          return;
+        }
+      }
+      showResult(data.count, null);
     } catch (err) {
-      showResult(0, err.message || 'Network error — is the server running?', null);
+      showResult(0, err.message || 'Network error — is the server running?');
     }
   }
 </script>

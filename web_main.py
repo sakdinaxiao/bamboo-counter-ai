@@ -1,3 +1,5 @@
+import shutil
+import subprocess
 from pathlib import Path
 import cv2
 import numpy as np
@@ -11,6 +13,21 @@ from src.segmentation import segmenting
 project_root = Path(__file__).resolve().parent
 _model_path = project_root / "training_result" / "detection_small" / "weights" / "best.pt"
 _seg_model_path = project_root / "training_result" / "segment" / "best.pt"
+
+_ffmpeg = shutil.which("ffmpeg")
+
+
+def _to_h264(src: str, dst: str) -> None:
+    # cv2 only writes mp4v, which browsers cannot decode; transcode to H.264
+    if _ffmpeg:
+        subprocess.run(
+            [_ffmpeg, "-y", "-i", src, "-c:v", "libx264", "-pix_fmt", "yuv420p",
+             "-movflags", "+faststart", "-an", dst],
+            check=True, capture_output=True,
+        )
+        Path(src).unlink(missing_ok=True)
+    else:
+        Path(src).replace(dst)
 
 
 def run(video_path: str, output_path: str | None = None) -> int:
@@ -26,16 +43,18 @@ def run(video_path: str, output_path: str | None = None) -> int:
 
     writer = None
     box_annotator = None
+    raw_path = None
 
     try:
         if output_path:
+            raw_path = str(Path(output_path).with_name("raw_" + Path(output_path).name))
             origin_fps_pre = cap.get(cv2.CAP_PROP_FPS) or 30
             stride_pre = max(1, int(origin_fps_pre / 3))
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             out_fps = max(1.0, origin_fps_pre / stride_pre)
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-            writer = cv2.VideoWriter(output_path, fourcc, out_fps, (w, h))
+            writer = cv2.VideoWriter(raw_path, fourcc, out_fps, (w, h))
             box_annotator = sv.BoxAnnotator(color=sv.Color.GREEN, thickness=2)
 
         sahi = get_sahi(_model_path)
@@ -100,8 +119,15 @@ def run(video_path: str, output_path: str | None = None) -> int:
                 )
                 writer.write(annotated)
 
+        if writer is not None:
+            writer.release()
+            writer = None
+            _to_h264(raw_path, output_path)
+
         return tracker.count()
     finally:
         cap.release()
         if writer is not None:
             writer.release()
+        if raw_path is not None:
+            Path(raw_path).unlink(missing_ok=True)

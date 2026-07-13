@@ -103,3 +103,23 @@ def test_get_video_returns_404_for_unknown_id():
 def test_get_video_returns_400_for_invalid_id():
     response = client.get("/video/not-a-uuid")
     assert response.status_code == 400
+
+
+def test_delete_video_removes_file():
+    video_id = str(uuid.uuid4())
+    video_file = app_module._temp_dir / f"{video_id}_output.mp4"
+    video_file.write_bytes(b"fake mp4 content")
+
+    response = client.delete(f"/video/{video_id}")
+    assert response.status_code == 204
+    assert not video_file.exists()
+
+
+def test_delete_video_returns_404_for_unknown_id():
+    response = client.delete(f"/video/{uuid.uuid4()}")
+    assert response.status_code == 404
+
+
+def test_delete_video_returns_400_for_invalid_id():
+    response = client.delete("/video/not-a-uuid")
+    assert response.status_code == 400
