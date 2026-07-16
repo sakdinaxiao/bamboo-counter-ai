@@ -3,16 +3,17 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 
-cv2.setRNGSeed(42)
-
 class GlobalTracker:
-    def __init__(self,merge_distance=8.0):
+    def __init__(self, merge_distance=8.0, update_rate=0.25, ransac_threshold=5.0, orb_features=1000):
         self.merge_distance = merge_distance
+        self.update_rate = update_rate
+        self.ransac_threshold = ransac_threshold
+        self.orb_features = orb_features
         self.map = []
         self.prev_frame = None
         self.total_camera_movement = np.identity(3)
 
-        self.feature_detector = cv2.ORB_create(nfeatures=1000)
+        self.feature_detector = cv2.ORB_create(nfeatures=self.orb_features)
         self.feature_matcher = cv2.BFMatcher(cv2.NORM_HAMMING,crossCheck=False)
 
     def find_camera_movement(self,frame):
@@ -50,7 +51,7 @@ class GlobalTracker:
             old_point,
             new_point,
             method=cv2.RANSAC,
-            ransacReprojThreshold=5.0,
+            ransacReprojThreshold=self.ransac_threshold,
             maxIters=200,
             confidence=0.99
         )
@@ -88,7 +89,7 @@ class GlobalTracker:
         global_center = self.total_camera_movement @ np.array(new_center).T
         global_center = global_center[0:2, :].T
 
-        update_rate = 0.25
+        update_rate = self.update_rate
         tree = cKDTree(self.map) if len(self.map) > 0 else None
 
         for p in global_center:
