@@ -41,7 +41,12 @@ def main(video):
 
         sahi = get_sahi(model_path)
 
-        tracker = GlobalTracker(merge_distance=12.5)
+        tracker = GlobalTracker(
+            merge_distance=12.5,
+            update_rate=0.25,
+            ransac_threshold=5.0,
+            orb_features=1000
+        )
         
         #----- for visual only
         box_annotator = sv.BoxAnnotator()
