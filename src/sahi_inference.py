@@ -13,6 +13,7 @@ class SahiDetector:
                  overlap_height_ratio=0.4, 
                  overlap_width_ratio=0.4, 
                  postprocess_match_threshold=0.4):
+                 
         self.slice_height = slice_height
         self.slice_width = slice_width
         self.overlap_height_ratio = overlap_height_ratio
@@ -22,7 +23,7 @@ class SahiDetector:
         device = self._get_available_device()
         
         self.model = AutoDetectionModel.from_pretrained(
-            model_type="yolov11",
+            model_type="ultralytics",
             model_path=str(model_path),
             confidence_threshold=confidence_threshold,
             device=device
