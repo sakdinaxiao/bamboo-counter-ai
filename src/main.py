@@ -1,6 +1,6 @@
 from src.clahe_inference import apply_clahe
 from ultralytics import YOLO
-from src.sahi_inference import apply_sahi,get_sahi
+from src.sahi_inference import SahiDetector
 from pathlib import Path
 import cv2
 import supervision as sv
@@ -8,14 +8,16 @@ import supervision as sv
 from src.segmentation import segmenting
 import numpy as np
 import argparse
-from src.global_tracker import GlobalTracker
+from tracker import Tracker
 
 project_root = Path(__file__).resolve().parent.parent
-model_path = project_root / "training_result" / "detection_small" / "weights" / "best.pt"
-seg_model_path = project_root / "training_result" / "segment" / "best.pt"
+TARGET_FPS = 3
 
 #using small YOLO
-def main(video):
+def main(args):
+    model_path = project_root / args.model_path
+    seg_model_path = project_root / args.seg_model_path
+
     if not seg_model_path.exists():
         print("Segmentation model path does not exist")
         return
@@ -24,7 +26,8 @@ def main(video):
         print("Model path does not exist")
         return
 
-    source_vid = project_root / video
+
+    source_vid = project_root / args.source
     if not source_vid.exists():
         print("There no video")
         return
@@ -39,13 +42,21 @@ def main(video):
     
     try:
 
-        sahi = get_sahi(model_path)
+        sahi_detector = SahiDetector(
+            model_path=model_path,
+            confidence_threshold=args.sahi_conf,
+            slice_height=args.sahi_slice,
+            slice_width=args.sahi_slice,
+            overlap_height_ratio=args.sahi_overlap,
+            overlap_width_ratio=args.sahi_overlap,
+            postprocess_match_threshold=args.sahi_match_thresh
+        )
 
-        tracker = GlobalTracker(
-            merge_distance=12.5,
-            update_rate=0.25,
-            ransac_threshold=5.0,
-            orb_features=1000
+        tracker = Tracker(
+            merge_distance=args.merge_distance,
+            update_rate=args.update_rate,
+            ransac_threshold=args.ransac_threshold,
+            orb_features=args.orb_features
         )
         
         #----- for visual only
@@ -54,12 +65,11 @@ def main(video):
         #-----
 
         origin_fps = cap.get(cv2.CAP_PROP_FPS)
-        target_fps = 3
-        stride = max(1, int(origin_fps/target_fps))
+        stride = max(1, int(origin_fps/TARGET_FPS))
         output_size = (1920, 1080)
         
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        video_writer = cv2.VideoWriter(str(output_path), fourcc, target_fps, output_size)
+        video_writer = cv2.VideoWriter(str(output_path), fourcc, TARGET_FPS, output_size)
 
         if not video_writer.isOpened():
             print("Can't create output video")
@@ -92,7 +102,7 @@ def main(video):
                 offset_y = region["offset_y"]
 
                 reg_img = apply_clahe(reg_img)
-                detected = apply_sahi(sahi,reg_img)
+                detected = sahi_detector.predict(reg_img)
 
                 if not detected.is_empty():
                     for i in range(len(detected.xyxy)):
@@ -156,7 +166,24 @@ def main(video):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Bamboo counter")
-    parser.add_argument("--source", type=str)
+    parser.add_argument("--source", type=str, required=True, help="Path to source video")
+    
+    # Model paths
+    parser.add_argument("--model_path", type=str, default="training_result/detection_small/weights/best.pt", help="Path to detection model")
+    parser.add_argument("--seg_model_path", type=str, default="training_result/segment/best.pt", help="Path to segmentation model")
+    
+    # Tracker parameters
+    parser.add_argument("--merge_distance", type=float, default=12.5)
+    parser.add_argument("--update_rate", type=float, default=0.25)
+    parser.add_argument("--ransac_threshold", type=float, default=5.0)
+    parser.add_argument("--orb_features", type=int, default=1000)
+    
+    # SAHI parameters
+    parser.add_argument("--sahi_conf", type=float, default=0.6)
+    parser.add_argument("--sahi_slice", type=int, default=640)
+    parser.add_argument("--sahi_overlap", type=float, default=0.4)
+    parser.add_argument("--sahi_match_thresh", type=float, default=0.4)
+    
     args = parser.parse_args()
-    print(f"This video have {main(args.source)} bamboos")
+    print(f"This video have {main(args)} bamboos")
     
