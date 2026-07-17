@@ -9,7 +9,7 @@ data_yaml = project_root / "Couting_dataset_Clahe" / "data.yaml"
 output_path = project_root/ f"training_result"
 
 
-model = YOLO("yolo26n.pt")
+model = YOLO("yolo26s.pt")
 
 def get_available_device():
     if torch.backends.mps.is_available():
@@ -30,8 +30,10 @@ def training_model(modelname):
 
         epochs=150,
         imgsz=640,
-        batch=16,
+        batch=64,
         workers=4,
+        optimizer='AdamW',
+        lr0=0.001,
 
         degrees=180.0,
         flipud=0.5,
