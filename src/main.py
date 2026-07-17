@@ -4,11 +4,10 @@ from src.sahi_inference import SahiDetector
 from pathlib import Path
 import cv2
 import supervision as sv
-# from bytetrack_inference import get_bytetrack, get_counting_zone, tracking
 from src.segmentation import segmenting
 import numpy as np
 import argparse
-from tracker import Tracker
+from src.tracker import Tracker
 
 project_root = Path(__file__).resolve().parent.parent
 TARGET_FPS = 3
