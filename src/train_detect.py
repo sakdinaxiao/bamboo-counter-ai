@@ -28,12 +28,10 @@ def training_model(modelname):
         project=output_path,
         name=modelname,
 
-        epochs=150,
+        epochs=200,
         imgsz=640,
-        batch=64,
+        batch=32,
         workers=4,
-        optimizer='AdamW',
-        lr0=0.001,
 
         degrees=180.0,
         flipud=0.5,
@@ -42,6 +40,7 @@ def training_model(modelname):
         scale=0.2,
         perspective=0.0,
         erasing=0.1, 
+        seed=42,
 
         device=get_available_device(),
         patience=50,
