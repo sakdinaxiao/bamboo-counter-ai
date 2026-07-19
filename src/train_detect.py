@@ -30,7 +30,7 @@ def training_model(modelname):
 
         epochs=150,
         imgsz=640,
-        batch=32,
+        batch=64,
         workers=4,
         optimizer='AdamW',
         lr0=0.001,
