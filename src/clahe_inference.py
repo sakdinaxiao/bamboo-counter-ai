@@ -3,8 +3,11 @@ from pathlib import Path
 
 project_root = Path(__file__).resolve().parent
 
+CLIPLIMIT=1.0
+TILEGRIDSIZE=(32,32)
+
 def apply_clahe(frame):
-    clahe = cv2.createCLAHE(clipLimit=2.5,tileGridSize=(16,16))
+    clahe = cv2.createCLAHE(clipLimit=CLIPLIMIT,tileGridSize=TILEGRIDSIZE)
 
     lab_img = cv2.cvtColor(frame,cv2.COLOR_BGR2LAB)
 
