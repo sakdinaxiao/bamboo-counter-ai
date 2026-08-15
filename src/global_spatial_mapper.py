@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class Tracker:
+class GlobalSpatialMapper:
     """
     A class to track camera movement and maintain a global map of detected objects.
 
@@ -25,7 +25,7 @@ class Tracker:
 
     def __init__(self, merge_distance=8.0, update_rate=0.25, ransac_threshold=5.0, orb_features=1000):
         """
-        Initializes the Tracker with given parameters.
+        Initializes the GlobalSpatialMapper with given parameters.
 
         Args:
             merge_distance (float): Distance threshold to consider two points as the same object.

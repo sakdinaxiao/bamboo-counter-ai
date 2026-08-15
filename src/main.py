@@ -7,7 +7,7 @@ import supervision as sv
 from src.segmentation import segmenting
 import numpy as np
 import argparse
-from src.tracker import Tracker
+from src.global_spatial_mapper import GlobalSpatialMapper
 
 # --- Hyperparameters ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -15,10 +15,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TARGET_FPS = 3
 
 # Model paths
-MODEL_PATH = "training_result/detection_small/weights/best.pt"
+MODEL_PATH = "training_result/experiment/CLAHE_cliplimit1/CLAHE_grid32/detection_small_clahe_experiment/weights/best.pt"
 SEG_MODEL_PATH = "training_result/segment/best.pt"
 
-# Tracker parameters
+# Mapper parameters
 MERGE_DISTANCE = 12.5
 UPDATE_RATE = 0.25
 RANSAC_THRESHOLD = 5.0
@@ -80,7 +80,7 @@ def main(args):
             postprocess_match_threshold=args.sahi_match_thresh
         )
 
-        tracker = Tracker(
+        mapper = GlobalSpatialMapper(
             merge_distance=args.merge_distance,
             update_rate=args.update_rate,
             ransac_threshold=args.ransac_threshold,
@@ -154,7 +154,7 @@ def main(args):
 
             print(f"Raw YOLO Detections this frame: {len(all_detections_xyxy)}")
 
-            tracker.update(frame,final_detections)
+            mapper.update(frame,final_detections)
 
 
             # -------------------------- Visulization
@@ -163,7 +163,7 @@ def main(args):
             annotated_frame = box_annotator.annotate(scene=annotated_frame, detections=final_detections)
             cv2.putText(
                 annotated_frame,
-                f"Total Counted: {tracker.count()}",
+                f"Total Counted: {mapper.count()}",
                 TEXT_POSITION, 
                 FONT,
                 FONT_SCALE, 
@@ -180,7 +180,7 @@ def main(args):
             
             # ---------------------------
         
-        return tracker.count()
+        return mapper.count()
     
     except Exception as e:
         print(f"Error {e}")
@@ -199,7 +199,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_path", type=str, default=MODEL_PATH, help="Path to detection model")
     parser.add_argument("--seg_model_path", type=str, default=SEG_MODEL_PATH, help="Path to segmentation model")
     
-    # Tracker parameters
+    # Mapper parameters
     parser.add_argument("--merge_distance", type=float, default=MERGE_DISTANCE)
     parser.add_argument("--update_rate", type=float, default=UPDATE_RATE)
     parser.add_argument("--ransac_threshold", type=float, default=RANSAC_THRESHOLD)
